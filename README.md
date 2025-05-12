@@ -1,1 +1,1 @@
-# GithubAppStore
+# GitHubAppStore
