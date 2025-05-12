@@ -105,7 +105,7 @@ export default function AppPage({ params }) {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: app?.title || "GitHub 应用商店",
+        title: app?.title || "开源应用商店",
         text: extractDescription(app?.body || "") || "查看这个开源应用",
         url: window.location.href,
       })

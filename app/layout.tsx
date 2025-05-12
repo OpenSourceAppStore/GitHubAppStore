@@ -25,11 +25,11 @@ export default function RootLayout({
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />
-            <main className="flex-1">{children}</main>
+            <main className="container mx-auto flex-1">{children}</main>
             <footer className="border-t py-4">
-              <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
+              <div className="container flex flex-col items-center justify-between gap-4 md:flex-row mx-auto">
                 <p className="text-center text-sm text-muted-foreground">
-                  &copy; {new Date().getFullYear()} 开源应用商店。基于 GitHub API 构建。
+                  &copy; 2024 - {new Date().getFullYear()} 开源应用商店。基于 GitHub API 构建。
                 </p>
                 <div className="flex items-center gap-4">
                   <a
