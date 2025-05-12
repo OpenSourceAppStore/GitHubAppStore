@@ -127,7 +127,8 @@ ${new Date().toISOString().split("T")[0]}
       headers: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        Authorization: `token ${token}`,
+        // 修改授权头格式为Bearer
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -138,7 +139,19 @@ ${new Date().toISOString().split("T")[0]}
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      // 获取更详细的错误信息
+      const errorData = await response.json().catch(() => ({}))
+      console.error("GitHub API错误:", errorData)
+
+      if (response.status === 401) {
+        throw new Error("授权失败：GitHub令牌无效或已过期")
+      } else if (response.status === 403) {
+        throw new Error("权限不足：您的GitHub账号没有创建issue的权限")
+      } else if (response.status === 422) {
+        throw new Error("请求无效：" + (errorData.message || "请检查提交的数据"))
+      } else {
+        throw new Error(`GitHub API错误 (${response.status}): ${errorData.message || "未知错误"}`)
+      }
     }
 
     const data = await response.json()
@@ -220,9 +233,19 @@ export async function getReadme(owner: string, repo: string) {
     }
 
     const data = await response.json()
+    
+    // 修复中文乱码问题
+    // 1. 使用 atob 获取二进制字符串
+    const binaryString = atob(data.content)
+    // 2. 将二进制字符串转换为 Uint8Array
+    const bytes = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+    // 3. 使用 TextDecoder 将 Uint8Array 解码为 UTF-8 字符串
+    const content = new TextDecoder("utf-8").decode(bytes)
 
-    // 解码 Base64 内容
-    const content = atob(data.content)
+    // console.log("README 内容:", content)
 
     // 简单的 Markdown 转 HTML（实际应用中应使用专业的 Markdown 解析库）
     const html = convertMarkdownToHtml(content)

@@ -6,10 +6,10 @@ export const authOptions: NextAuthOptions = {
     GithubProvider({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
-      // 只请求用户邮箱权限
+      // 更新权限范围，添加public_repo权限以允许创建issue
       authorization: {
         params: {
-          scope: "user:email",
+          scope: "user:email public_repo",
         },
       },
     }),
@@ -36,8 +36,8 @@ export const authOptions: NextAuthOptions = {
   },
   // 自定义页面
   pages: {
-    error: "/auth/error", // 错误页面
     signIn: "/auth/signin", // 登录页面
+    error: "/auth/error", // 错误页面
   },
   // 添加事件处理
   events: {
