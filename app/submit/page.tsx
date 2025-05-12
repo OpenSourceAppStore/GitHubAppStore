@@ -145,6 +145,7 @@ export default function SubmitPage() {
             </CardHeader>
             <CardContent className="text-center py-6">
               <p className="mb-4 text-muted-foreground">您需要使用 GitHub 账号登录才能提交应用</p>
+              <p className="mb-6 text-sm text-muted-foreground">我们只需要您的邮箱地址用于身份验证，不会请求其他权限</p>
               <Button asChild>
                 <Link href="/auth/signin">登录 GitHub</Link>
               </Button>
@@ -231,7 +232,7 @@ export default function SubmitPage() {
                 <div className="text-sm text-muted-foreground">
                   <p className="font-medium mb-1">提交说明</p>
                   <p>
-                    提交的项目将作为 issue 创建在 OpenSourceAppStore/GithubAppStore
+                    提交的项目将作为 issue 创建在 OpenSourceAppStore/NotGitHubAppStore
                     仓库中，管理员审核后将添加到应用商店。
                   </p>
                 </div>

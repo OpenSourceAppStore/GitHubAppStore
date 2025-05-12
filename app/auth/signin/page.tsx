@@ -5,11 +5,10 @@ import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Github } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 
 export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || "/"
   const error = searchParams.get("error")
@@ -30,26 +29,14 @@ export default function SignIn() {
         <CardContent className="grid gap-4">
           {error && (
             <div className="p-4 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-md">
-              {error === "OAuthSignin" && "GitHub 登录过程中出现错误，请重试。"}
-              {error === "OAuthCallback" && "GitHub 回调过程中出现错误，请重试。"}
-              {error === "OAuthCreateAccount" && "无法创建 GitHub 账号，请重试。"}
-              {error === "EmailCreateAccount" && "无法创建账号，请重试。"}
-              {error === "Callback" && "GitHub 回调过程中出现错误，请重试。"}
-              {error === "OAuthAccountNotLinked" && "此邮箱已关联其他账号，请使用其他登录方式。"}
-              {error === "EmailSignin" && "邮箱验证链接发送失败，请重试。"}
-              {error === "CredentialsSignin" && "登录失败，请检查您提供的详细信息。"}
-              {![
-                "OAuthSignin",
-                "OAuthCallback",
-                "OAuthCreateAccount",
-                "EmailCreateAccount",
-                "Callback",
-                "OAuthAccountNotLinked",
-                "EmailSignin",
-                "CredentialsSignin",
-              ].includes(error) && "登录过程中出现错误，请重试。"}
+              登录过程中出现错误，请重试。
             </div>
           )}
+
+          <div className="p-4 bg-muted rounded-md">
+            <p className="text-sm text-muted-foreground">我们只需要您的邮箱地址用于身份验证，不会请求其他GitHub权限</p>
+          </div>
+
           <Button variant="outline" onClick={handleSignIn} disabled={isLoading} className="w-full">
             {isLoading ? (
               <span className="flex items-center justify-center">

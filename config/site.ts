@@ -4,6 +4,6 @@ export const siteConfig = {
   url: "https://github-app-store.vercel.app",
   ogImage: "https://github-app-store.vercel.app/og.jpg",
   links: {
-    github: "https://github.com/OpenSourceAppStore/GithubAppStore",
+    github: "https://github.com/OpenSourceAppStore/NotGitHubAppStore",
   },
 }

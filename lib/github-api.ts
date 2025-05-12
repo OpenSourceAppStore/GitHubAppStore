@@ -1,5 +1,5 @@
 const REPO_OWNER = "OpenSourceAppStore"
-const REPO_NAME = "GithubAppStore"
+const REPO_NAME = "NotGitHubAppStore" // 更新为新的仓库名称
 const BASE_API_URL = "https://api.github.com"
 
 // 格式化数字（如星标数）
@@ -23,6 +23,8 @@ export async function getApps(page = 1, perPage = 10, labels?: string[]) {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
+      // 增加缓存控制
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -47,6 +49,8 @@ export async function getAppDetails(issueNumber: number) {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
+      // 增加缓存控制
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -71,6 +75,8 @@ export async function getAppComments(issueNumber: number) {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
+      // 增加缓存控制
+      cache: "no-store",
     })
 
     if (!response.ok) {

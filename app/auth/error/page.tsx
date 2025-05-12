@@ -18,6 +18,22 @@ export default function AuthError() {
         return "访问被拒绝，您没有权限访问此资源。"
       case "Verification":
         return "登录链接已过期或已被使用。"
+      case "OAuthSignin":
+        return "启动OAuth登录流程时出错。"
+      case "OAuthCallback":
+        return "GitHub回调过程中出现错误。"
+      case "OAuthCreateAccount":
+        return "无法创建OAuth账号。"
+      case "EmailCreateAccount":
+        return "无法创建账号。"
+      case "Callback":
+        return "回调过程中出现错误。"
+      case "OAuthAccountNotLinked":
+        return "此邮箱已关联其他账号，请使用其他登录方式。"
+      case "EmailSignin":
+        return "邮箱验证链接发送失败。"
+      case "CredentialsSignin":
+        return "登录失败，请检查您提供的详细信息。"
       default:
         return "认证过程中出现错误，请重试。"
     }
@@ -34,7 +50,7 @@ export default function AuthError() {
           <CardDescription>登录过程中出现了问题</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="p-4 text-sm bg-destructive/10 text-destructive rounded-md">{getErrorMessage(error)}</div>
+          <div className="p-4 bg-destructive/10 text-destructive rounded-md">{getErrorMessage(error)}</div>
         </CardContent>
         <CardFooter>
           <Button asChild className="w-full">

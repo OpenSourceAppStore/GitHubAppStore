@@ -33,7 +33,7 @@ export default function RootLayout({
                 </p>
                 <div className="flex items-center gap-4">
                   <a
-                    href="https://github.com/OpenSourceAppStore/GithubAppStore"
+                    href="https://github.com/OpenSourceAppStore/NotGitHubAppStore"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:underline"

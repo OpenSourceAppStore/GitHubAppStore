@@ -396,12 +396,15 @@ export default function AppPage({ params }) {
                       </form>
                     ) : (
                       <div className="bg-muted p-4 rounded-md mb-6">
-                        <p className="text-center">
+                        <p className="text-center mb-2">
                           请{" "}
                           <Link href="/auth/signin" className="text-primary hover:underline">
                             登录
                           </Link>{" "}
                           后发表评论
+                        </p>
+                        <p className="text-xs text-center text-muted-foreground">
+                          我们只需要您的邮箱地址用于身份验证，不会请求其他GitHub权限
                         </p>
                       </div>
                     )}

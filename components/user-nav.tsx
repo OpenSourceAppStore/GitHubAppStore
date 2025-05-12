@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,10 +15,29 @@ import {
 import { useSession, signIn, signOut } from "next-auth/react"
 import { LogIn, LogOut, User, Github, Plus } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export function UserNav() {
   const { data: session, status } = useSession()
   const loading = status === "loading"
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const { toast } = useToast()
+
+  const handleSignIn = async () => {
+    try {
+      setIsSigningIn(true)
+      await signIn("github")
+    } catch (error) {
+      console.error("登录失败:", error)
+      toast({
+        title: "登录失败",
+        description: "GitHub登录过程中出现错误，请稍后重试",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -27,11 +47,20 @@ export function UserNav() {
     )
   }
 
-  if (!session) {
+  if (status === "unauthenticated" || !session) {
     return (
-      <Button variant="outline" size="sm" onClick={() => signIn("github")}>
-        <LogIn className="mr-2 h-4 w-4" />
-        登录
+      <Button variant="outline" size="sm" onClick={handleSignIn} disabled={isSigningIn}>
+        {isSigningIn ? (
+          <span className="flex items-center">
+            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent"></span>
+            登录中
+          </span>
+        ) : (
+          <>
+            <LogIn className="mr-2 h-4 w-4" />
+            登录
+          </>
+        )}
       </Button>
     )
   }

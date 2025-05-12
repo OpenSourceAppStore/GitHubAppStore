@@ -21,7 +21,7 @@ export function Header({ className, ...props }: HeaderProps) {
 
   return (
     <header className={cn("bg-background sticky top-0 z-50 w-full border-b", className)} {...props}>
-      <div className="container flex h-16 items-center">
+      <div className="container flex h-16 items-center mx-auto">
         <Link href="/" className="mr-4 flex items-center space-x-2">
           <Icons.logo className="h-6 w-6" />
           <span className="hidden font-bold sm:inline-block">{siteConfig.name}</span>
