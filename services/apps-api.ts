@@ -43,6 +43,7 @@ export async function submitApp(
   const url = getRepoApiUrl("/issues")
 
   // 构建 issue 内容，遵循模板格式
+  // 注意：description 可能已经包含了截图部分
   const body = `
 ## 应用信息
 

@@ -238,7 +238,7 @@ export default function TrendingPage() {
                       rel="noopener noreferrer"
                       className="hover:underline flex items-center"
                     >
-                     {repo.owner.login}/{repo.name}
+                      {repo.owner.login}/{repo.name}
                       <ExternalLink className="h-4 w-4 ml-1 inline-block" />
                     </a>
                   </CardTitle>

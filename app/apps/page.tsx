@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { MessageSquare, Package } from "lucide-react"
+import { MessageSquare, Package, Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
 // 从新的服务模块导入
 import { getApps } from "@/services/apps-api"
@@ -99,7 +99,7 @@ export default function AppsPage() {
           <p className="text-muted-foreground">浏览社区提交的开源应用</p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="选择分类" />
@@ -112,6 +112,14 @@ export default function AppsPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* 添加提交应用按钮 */}
+          <Button asChild variant="default" className="gap-1">
+            <Link href="/submit">
+              <Plus className="h-4 w-4" />
+              提交应用
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -147,8 +155,11 @@ export default function AppsPage() {
         <div className="text-center py-12">
           <h2 className="text-xl font-medium mb-2">暂无应用</h2>
           <p className="text-muted-foreground mb-6">成为第一个提交应用的人吧！</p>
-          <Button asChild>
-            <Link href="/submit">提交应用</Link>
+          <Button asChild size="lg">
+            <Link href="/submit">
+              <Plus className="h-5 w-5 mr-2" />
+              提交应用
+            </Link>
           </Button>
         </div>
       ) : (
@@ -213,6 +224,16 @@ export default function AppsPage() {
           )}
         </>
       )}
+
+      {/* 底部固定的提交应用按钮（仅在移动设备上显示） */}
+      <div className="md:hidden fixed bottom-6 right-6 z-10">
+        <Button asChild size="lg" className="rounded-full shadow-lg h-14 w-14 p-0">
+          <Link href="/submit">
+            <Plus className="h-6 w-6" />
+            <span className="sr-only">提交应用</span>
+          </Link>
+        </Button>
+      </div>
     </div>
   )
 }

@@ -30,13 +30,12 @@ export function Header({ className, ...props }: HeaderProps) {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // 导航链接数据
+  // 导航链接数据 - 移除了"提交应用"选项
   const navLinks = [
     { href: "/", label: "首页" },
     { href: "/apps", label: "应用列表" },
-    { href: "/suggestions", label: "需求建议" }, // 新增需求建议菜单项
+    { href: "/suggestions", label: "需求建议" },
     { href: "/trending", label: "热门项目" },
-    { href: "/submit", label: "提交应用" },
   ]
 
   return (

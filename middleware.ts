@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
 // 需要登录才能访问的路径
-const protectedPaths = ["/submit"]
+const protectedPaths = ["/submit", "/suggestions/submit"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -27,5 +27,5 @@ export async function middleware(request: NextRequest) {
 
 // 配置匹配的路径
 export const config = {
-  matcher: ["/submit", "/submit/:path*"],
+  matcher: ["/submit", "/submit/:path*", "/suggestions/submit", "/suggestions/submit/:path*"],
 }

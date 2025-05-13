@@ -19,6 +19,9 @@ import {
   ExternalLink,
   Calendar,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
@@ -36,6 +39,9 @@ export default function AppPage({ params }) {
   const [error, setError] = useState(null)
   const [comment, setComment] = useState("")
   const [submittingComment, setSubmittingComment] = useState(false)
+  const [screenshots, setScreenshots] = useState<string[]>([])
+  const [currentScreenshot, setCurrentScreenshot] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const { toast } = useToast()
   const { data: session } = useSession()
 
@@ -61,6 +67,11 @@ export default function AppPage({ params }) {
 
       // 从 issue 内容中提取仓库 URL
       const repoUrl = extractRepoUrl(appData.body)
+
+      // 提取截图
+      const extractedScreenshots = extractScreenshots(appData.body)
+      setScreenshots(extractedScreenshots)
+      console.log("Extracted Screenshots:", extractedScreenshots)
 
       if (repoUrl) {
         // 从 URL 中提取仓库所有者和名称
@@ -93,18 +104,57 @@ export default function AppPage({ params }) {
 
   // 从 issue 内容中提取仓库 URL
   const extractRepoUrl = (body) => {
-    const match = body.match(/\*\*仓库地址\*\*:\s*(https:\/\/github\.com\/[\w-]+\/[\w.-]+)/)
+    const match = body?.match(/\*\*仓库地址\*\*:\s*(https:\/\/github\.com\/[\w-]+\/[\w.-]+)/)
     return match ? match[1] : null
   }
 
   // 从 issue 内容中提取描述
   const extractDescription = (body) => {
-    const sections = body.split("## 描述")
-    if (sections.length > 1) {
-      const descSection = sections[1].split("##")[0].trim()
-      return descSection
+    if (!body) return ""
+
+    // 检查是否有应用截图部分
+    const screenshotSection = body.indexOf("## 应用截图")
+
+    if (screenshotSection === -1) {
+      // 如果没有截图部分，提取整个描述
+      const sections = body.split("## 描述")
+      if (sections.length > 1) {
+        const descSection = sections[1].split("##")[0].trim()
+        return descSection
+      }
+    } else {
+      // 如果有截图部分，只提取描述部分
+      const sections = body.split("## 描述")
+      if (sections.length > 1) {
+        const fullDesc = sections[1]
+        return fullDesc.substring(0, fullDesc.indexOf("## 应用截图")).trim()
+      }
     }
+
     return ""
+  }
+
+  // 从 issue 内容中提取截图
+  const extractScreenshots = (body) => {
+    if (!body) return []
+
+    const screenshots: string[] = []
+    const screenshotSection = body.indexOf("## 应用截图")
+
+    if (screenshotSection !== -1) {
+      // 提取截图部分的内容
+      const screenshotContent = body.substring(screenshotSection)
+
+      // 使用正则表达式匹配所有图片链接
+      const imgRegex = /!\[.*?\]\((.*?)\)/g
+      let match
+
+      while ((match = imgRegex.exec(screenshotContent)) !== null) {
+        screenshots.push(match[1])
+      }
+    }
+
+    return screenshots
   }
 
   const handleShare = () => {
@@ -174,7 +224,25 @@ export default function AppPage({ params }) {
     }
   }
 
-  // 其余代码保持不变...
+  // 处理截图导航
+  const navigateScreenshot = (direction: "prev" | "next") => {
+    if (direction === "prev") {
+      setCurrentScreenshot((prev) => (prev > 0 ? prev - 1 : screenshots.length - 1))
+    } else {
+      setCurrentScreenshot((prev) => (prev < screenshots.length - 1 ? prev + 1 : 0))
+    }
+  }
+
+  // 打开截图灯箱
+  const openLightbox = (index: number) => {
+    setCurrentScreenshot(index)
+    setLightboxOpen(true)
+  }
+
+  // 关闭截图灯箱
+  const closeLightbox = () => {
+    setLightboxOpen(false)
+  }
 
   if (loading) {
     return (
@@ -340,6 +408,7 @@ export default function AppPage({ params }) {
             <Tabs defaultValue="description">
               <TabsList className="mb-4">
                 <TabsTrigger value="description">描述</TabsTrigger>
+                {screenshots.length > 0 && <TabsTrigger value="screenshots">截图 ({screenshots.length})</TabsTrigger>}
                 <TabsTrigger value="readme">README</TabsTrigger>
                 <TabsTrigger value="comments">评论 ({comments.length})</TabsTrigger>
               </TabsList>
@@ -357,6 +426,75 @@ export default function AppPage({ params }) {
                   </CardFooter>
                 </Card>
               </TabsContent>
+
+              {screenshots.length > 0 && (
+                <TabsContent value="screenshots">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>应用截图</CardTitle>
+                      <CardDescription>查看应用的界面和功能</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {/* 截图轮播 */}
+                      <div className="relative mb-4">
+                        <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+                          <img
+                            src={screenshots[currentScreenshot] || "/placeholder.svg"}
+                            alt={`应用截图 ${currentScreenshot + 1}`}
+                            className="w-full h-full object-contain"
+                            onClick={() => openLightbox(currentScreenshot)}
+                          />
+
+                          {screenshots.length > 1 && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background/90"
+                                onClick={() => navigateScreenshot("prev")}
+                              >
+                                <ChevronLeft className="h-6 w-6" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background/90"
+                                onClick={() => navigateScreenshot("next")}
+                              >
+                                <ChevronRight className="h-6 w-6" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        <div className="text-center mt-2 text-sm text-muted-foreground">
+                          点击图片查看大图 • {currentScreenshot + 1} / {screenshots.length}
+                        </div>
+                      </div>
+
+                      {/* 缩略图导航 */}
+                      {screenshots.length > 1 && (
+                        <div className="grid grid-cols-5 gap-2">
+                          {screenshots.map((screenshot, index) => (
+                            <div
+                              key={index}
+                              className={`cursor-pointer rounded-md overflow-hidden border-2 ${
+                                index === currentScreenshot ? "border-primary" : "border-transparent"
+                              }`}
+                              onClick={() => setCurrentScreenshot(index)}
+                            >
+                              <img
+                                src={screenshot || "/placeholder.svg"}
+                                alt={`缩略图 ${index + 1}`}
+                                className="w-full h-16 object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
 
               <TabsContent value="readme">
                 {readme ? (
@@ -498,6 +636,12 @@ export default function AppPage({ params }) {
                         <span className="text-muted-foreground">许可证</span>
                         <span>{repository.license?.name || "未指定"}</span>
                       </div>
+                      {screenshots.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">截图数量</span>
+                          <span>{screenshots.length}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -552,6 +696,60 @@ export default function AppPage({ params }) {
           </div>
         </div>
       </div>
+
+      {/* 截图灯箱 */}
+      {lightboxOpen && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={closeLightbox}>
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            <img
+              src={screenshots[currentScreenshot] || "/placeholder.svg"}
+              alt={`应用截图 ${currentScreenshot + 1}`}
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {screenshots.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/20 hover:bg-background/40"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigateScreenshot("prev")
+                  }}
+                >
+                  <ChevronLeft className="h-8 w-8" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/20 hover:bg-background/40"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigateScreenshot("next")
+                  }}
+                >
+                  <ChevronRight className="h-8 w-8" />
+                </Button>
+              </>
+            )}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 bg-background/20 hover:bg-background/40"
+              onClick={closeLightbox}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-2 rounded-full">
+              {currentScreenshot + 1} / {screenshots.length}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
