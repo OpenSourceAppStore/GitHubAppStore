@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, Github } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { submitApp } from "@/lib/github-api"
 import { useSession } from "next-auth/react"
-import Link from "next/link"
-import { SessionDebug } from "@/components/session-debug"
+import { useRouter } from "next/navigation"
+// 从新的服务模块导入
+import { submitApp } from "@/services/apps-api"
 
 // 应用分类
 const categories = [
@@ -38,7 +38,32 @@ export default function SubmitPage() {
   const [tags, setTags] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  // 检查用户是否已登录，如果未登录则重定向到登录页面
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      // 重定向到登录页面，并设置回调URL为当前页面
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent("/submit")}`)
+    }
+  }, [status, router])
+
+  // 如果正在加载会话状态，显示加载中
+  if (status === "loading") {
+    return (
+      <div className="container py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 如果未登录，不渲染页面内容（虽然会被重定向，但为了安全起见）
+  if (!session) {
+    return null
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -91,16 +116,6 @@ export default function SubmitPage() {
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0)
 
-      // 检查用户是否已登录
-      if (!session?.accessToken) {
-        toast({
-          title: "需要登录",
-          description: "请先登录 GitHub 后再提交应用",
-        })
-        setIsSubmitting(false)
-        return
-      }
-
       // 提交应用（创建 issue）
       await submitApp(
         {
@@ -135,31 +150,10 @@ export default function SubmitPage() {
     }
   }
 
-  if (!session) {
-    return (
-      <div className="container py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>需要登录</CardTitle>
-              <CardDescription>请先登录后再提交应用</CardDescription>
-            </CardHeader>
-            <CardContent className="text-center py-6">
-              <p className="mb-4 text-muted-foreground">您需要使用 GitHub 账号登录才能提交应用</p>
-              <p className="mb-6 text-sm text-muted-foreground">我们只需要您的邮箱地址用于身份验证，不会请求其他权限</p>
-              <Button asChild>
-                <Link href="/auth/signin">登录 GitHub</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="container py-8">
       <div className="max-w-2xl mx-auto">
+
         <h1 className="text-3xl font-bold mb-6">提交应用</h1>
 
         <Card>
@@ -241,7 +235,7 @@ export default function SubmitPage() {
             </form>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => window.history.back()}>
+            <Button variant="outline" onClick={() => router.back()}>
               取消
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>

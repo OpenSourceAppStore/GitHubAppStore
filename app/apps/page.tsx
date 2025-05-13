@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MessageSquare, Package } from "lucide-react"
-import { getApps } from "@/lib/github-api"
+import { useSession } from "next-auth/react"
+// 从新的服务模块导入
+import { getApps } from "@/services/apps-api"
 
 export default function AppsPage() {
   const [category, setCategory] = useState("all")
@@ -17,6 +19,7 @@ export default function AppsPage() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const { data: session } = useSession()
 
   // 分类列表
   const categories = [
@@ -33,7 +36,7 @@ export default function AppsPage() {
 
   useEffect(() => {
     fetchApps()
-  }, [category])
+  }, [category, session])
 
   const fetchApps = async (loadMore = false) => {
     if (loadMore && !hasMore) return
@@ -46,7 +49,9 @@ export default function AppsPage() {
     try {
       // 只有当category不是"all"时才添加标签过滤
       const labels = category !== "all" ? [category] : []
-      const data = await getApps(currentPage, 12, labels)
+      // 如果用户已登录，使用其token请求API
+      const token = session?.accessToken as string | undefined
+      const data = await getApps(currentPage, 12, labels, token)
 
       if (loadMore) {
         setApps((prev) => [...prev, ...data])

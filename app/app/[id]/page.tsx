@@ -20,9 +20,11 @@ import {
   Calendar,
   AlertCircle,
 } from "lucide-react"
-import { getAppDetails, getAppComments, getRepository, getReadme, addComment } from "@/lib/github-api"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
+// 从新的服务模块导入
+import { getAppDetails, getAppComments, addComment } from "@/services/app-details-api"
+import { getRepository, getReadme } from "@/services/repository-api"
 
 export default function AppPage({ params }) {
   const { id } = params
@@ -46,12 +48,15 @@ export default function AppPage({ params }) {
     setError(null)
 
     try {
+      // 获取用户token（如果已登录）
+      const token = session?.accessToken as string | undefined
+
       // 获取应用详情（issue）
-      const appData = await getAppDetails(Number.parseInt(id))
+      const appData = await getAppDetails(Number.parseInt(id), token)
       setApp(appData)
 
       // 获取应用评论
-      const commentsData = await getAppComments(Number.parseInt(id))
+      const commentsData = await getAppComments(Number.parseInt(id), token)
       setComments(commentsData)
 
       // 从 issue 内容中提取仓库 URL
@@ -65,12 +70,12 @@ export default function AppPage({ params }) {
 
         // 获取仓库信息
         try {
-          const repoData = await getRepository(owner, repo)
+          const repoData = await getRepository(owner, repo, token)
           setRepository(repoData)
 
           // 获取 README
           try {
-            const readmeData = await getReadme(owner, repo)
+            const readmeData = await getReadme(owner, repo, token)
             setReadme(readmeData)
           } catch (readmeErr) {
             console.error("README 获取失败:", readmeErr)
@@ -152,7 +157,8 @@ export default function AppPage({ params }) {
       })
 
       // 重新获取评论
-      const commentsData = await getAppComments(Number.parseInt(id))
+      const token = session?.accessToken as string | undefined
+      const commentsData = await getAppComments(Number.parseInt(id), token)
       setComments(commentsData)
 
       // 清空评论框
@@ -167,6 +173,8 @@ export default function AppPage({ params }) {
       setSubmittingComment(false)
     }
   }
+
+  // 其余代码保持不变...
 
   if (loading) {
     return (

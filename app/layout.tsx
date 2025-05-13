@@ -5,6 +5,7 @@ import "./globals.css"
 import { Header } from "@/components/header"
 import { Toaster } from "@/components/ui/toaster"
 import { Providers } from "@/components/providers"
+import { ApiStatus } from "@/components/api-status"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,19 +28,13 @@ export default function RootLayout({
             <Header />
             <main className="container mx-auto flex-1">{children}</main>
             <footer className="border-t py-4">
-              <div className="container flex flex-col items-center justify-between gap-4 md:flex-row mx-auto">
+              <div className="container flex flex-col sm:flex-row items-center justify-between gap-4 mx-auto">
                 <p className="text-center text-sm text-muted-foreground">
                   &copy; 2024 - {new Date().getFullYear()} 开源应用商店。基于 GitHub API 构建。
                 </p>
-                <div className="flex items-center gap-4">
-                  <a
-                    href="https://github.com/OpenSourceAppStore/NotGitHubAppStore"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:underline"
-                  >
-                    GitHub 仓库
-                  </a>
+                {/* 添加API状态组件 */}
+                <div className="flex items-center">
+                  <ApiStatus />
                 </div>
               </div>
             </footer>
