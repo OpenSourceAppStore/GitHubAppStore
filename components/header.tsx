@@ -34,6 +34,7 @@ export function Header({ className, ...props }: HeaderProps) {
   const navLinks = [
     { href: "/", label: "首页" },
     { href: "/apps", label: "应用列表" },
+    { href: "/suggestions", label: "需求建议" }, // 新增需求建议菜单项
     { href: "/trending", label: "热门项目" },
     { href: "/submit", label: "提交应用" },
   ]
