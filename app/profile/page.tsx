@@ -90,7 +90,7 @@ export default function ProfilePage() {
             <p className="text-muted-foreground">{session.user?.email}</p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" asChild>
-                <a href={`https://github.com/${session.user?.name}`} target="_blank" rel="noopener noreferrer">
+                <a href={`https://github.com/${session.user?.login}`} target="_blank" rel="noopener noreferrer">
                   <Github className="mr-2 h-4 w-4" />
                   GitHub 主页
                 </a>

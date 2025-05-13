@@ -160,7 +160,6 @@ export default function SubmitPage() {
   return (
     <div className="container py-8">
       <div className="max-w-2xl mx-auto">
-        {process.env.NODE_ENV === "development" && <SessionDebug />}
         <h1 className="text-3xl font-bold mb-6">提交应用</h1>
 
         <Card>

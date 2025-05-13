@@ -233,7 +233,7 @@ export async function getReadme(owner: string, repo: string) {
     }
 
     const data = await response.json()
-    
+
     // 修复中文乱码问题
     // 1. 使用 atob 获取二进制字符串
     const binaryString = atob(data.content)
@@ -244,8 +244,6 @@ export async function getReadme(owner: string, repo: string) {
     }
     // 3. 使用 TextDecoder 将 Uint8Array 解码为 UTF-8 字符串
     const content = new TextDecoder("utf-8").decode(bytes)
-
-    // console.log("README 内容:", content)
 
     // 简单的 Markdown 转 HTML（实际应用中应使用专业的 Markdown 解析库）
     const html = convertMarkdownToHtml(content)

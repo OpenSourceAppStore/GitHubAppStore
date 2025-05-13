@@ -12,19 +12,40 @@ export const authOptions: NextAuthOptions = {
           scope: "user:email public_repo",
         },
       },
+      profile(profile) {
+        return {
+          id: profile.id.toString(),
+          name: profile.name || profile.login,
+          email: profile.email,
+          image: profile.avatar_url,
+          // 保存GitHub用户名
+          login: profile.login,
+        }
+      },
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       // 将access_token保存到token中，以便后续使用
       if (account) {
         token.accessToken = account.access_token
+      }
+      // 保存GitHub用户名
+      if (profile) {
+        token.login = profile.login
       }
       return token
     },
     async session({ session, token }) {
       // 将access_token添加到session中，以便客户端使用
       session.accessToken = token.accessToken
+      // 将GitHub用户名添加到session中
+      if (token.login) {
+        session.user = {
+          ...session.user,
+          login: token.login as string,
+        }
+      }
       return session
     },
   },
