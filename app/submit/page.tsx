@@ -1,55 +1,63 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Github, Upload, X } from "lucide-react"
+import { AlertCircle, Github, HelpCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { MarkdownEditor } from "@/components/markdown-editor"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import matter from "gray-matter"
+
 // 从新的服务模块导入
 import { submitApp } from "@/services/apps-api"
 
-// 应用分类
-const categories = [
-  { value: "前端框架", label: "前端框架" },
-  { value: "后端框架", label: "后端框架" },
-  { value: "数据库", label: "数据库" },
-  { value: "机器学习", label: "机器学习" },
-  { value: "开发工具", label: "开发工具" },
-  { value: "移动应用", label: "移动应用" },
-  { value: "游戏开发", label: "游戏开发" },
-  { value: "DevOps", label: "DevOps" },
-  { value: "安全工具", label: "安全工具" },
-  { value: "数据可视化", label: "数据可视化" },
-  { value: "API工具", label: "API工具" },
-  { value: "区块链", label: "区块链" },
-]
+// 应用提交模板 - 删除了从GitHub API获取的字段
+const APP_TEMPLATE = `---
+name: 应用名称
+repo: https://github.com/username/repo
+category: 前端框架
+tags: react, ui, 组件库
+website: https://example.com
+version: 1.0.0
+description: 简短的应用描述
+screenshots:
+  - https://example.com/screenshot1.png
+  - https://example.com/screenshot2.png
+---
 
-// 站点配置
-const siteConfig = {
-  links: {
-    github: "https://github.com/OpenSourceAppStore/NotGitHubAppStore",
-  },
+## 详细介绍
+
+在这里详细介绍应用的功能、特点和使用场景。
+
+## 特性
+
+- 特性1：描述特性1
+- 特性2：描述特性2
+- 特性3：描述特性3
+
+## 安装方法
+
+\`\`\`bash
+npm install your-package-name
+\`\`\`
+
+## 使用示例
+
+\`\`\`javascript
+import { Component } from 'your-package-name';
+
+function App() {
+  return <Component />;
 }
+\`\`\`
+`
 
 export default function SubmitPage() {
-  const [repoUrl, setRepoUrl] = useState("")
-  const [appName, setAppName] = useState("")
-  const [description, setDescription] = useState("")
-  const [category, setCategory] = useState("")
-  const [tags, setTags] = useState("")
+  const [markdownContent, setMarkdownContent] = useState(APP_TEMPLATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [screenshots, setScreenshots] = useState<File[]>([])
-  const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([])
-  const [uploadingImages, setUploadingImages] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -66,7 +74,7 @@ export default function SubmitPage() {
   if (status === "loading") {
     return (
       <div className="container py-8">
-        <div className="max-w-2xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center">
           <p className="text-muted-foreground">加载中...</p>
         </div>
       </div>
@@ -78,200 +86,58 @@ export default function SubmitPage() {
     return null
   }
 
-  // 处理图片选择
-  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files)
+  const handleSubmit = async () => {
+    try {
+      // 使用gray-matter解析前置元数据
+      const { data: frontmatter, content } = matter(markdownContent)
 
-      // 检查文件类型
-      const validFiles = newFiles.filter(
-        (file) =>
-          file.type === "image/jpeg" ||
-          file.type === "image/png" ||
-          file.type === "image/gif" ||
-          file.type === "image/webp",
-      )
+      // 验证必填字段
+      const requiredFields = ["name", "repo", "category", "description"]
+      const missingFields = requiredFields.filter((field) => !frontmatter[field])
 
-      if (validFiles.length !== newFiles.length) {
+      if (missingFields.length > 0) {
         toast({
-          title: "不支持的文件类型",
-          description: "只支持JPG、PNG、GIF和WebP格式的图片",
-          variant: "destructive",
-        })
-      }
-
-      // 限制最多5张图片
-      if (screenshots.length + validFiles.length > 5) {
-        toast({
-          title: "图片数量超出限制",
-          description: "最多只能上传5张截图",
+          title: "缺少必填字段",
+          description: `请填写以下字段: ${missingFields.join(", ")}`,
           variant: "destructive",
         })
         return
       }
 
-      setScreenshots((prev) => [...prev, ...validFiles])
-
-      // 生成预览
-      validFiles.forEach((file) => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setScreenshotPreviews((prev) => [...prev, e.target!.result as string])
-          }
-        }
-        reader.readAsDataURL(file)
-      })
-    }
-  }
-
-  // 移除截图
-  const removeScreenshot = (index: number) => {
-    setScreenshots((prev) => prev.filter((_, i) => i !== index))
-    setScreenshotPreviews((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  // 上传图片到GitHub
-  const uploadImagesToGitHub = async (): Promise<string[]> => {
-    if (screenshots.length === 0) return []
-
-    setUploadingImages(true)
-    const imageUrls: string[] = []
-
-    try {
-      // 获取仓库信息
-      const repoUrlParts = new URL(siteConfig.links.github)
-      const pathParts = repoUrlParts.pathname.split("/")
-      const owner = pathParts[1]
-      const repo = pathParts[2]
-
-      for (const file of screenshots) {
-        // 创建唯一文件名
-        const timestamp = Date.now()
-        const randomString = Math.random().toString(36).substring(2, 8)
-        const fileName = `app-screenshot-${timestamp}-${randomString}.${file.name.split(".").pop()}`
-
-        // 读取文件内容
-        const reader = new FileReader()
-        const fileContent = await new Promise<string>((resolve) => {
-          reader.onload = (e) => resolve(e.target!.result as string)
-          reader.readAsDataURL(file)
+      // 验证 GitHub 仓库 URL 格式
+      const githubUrlPattern = /^https:\/\/github\.com\/[\w-]+\/[\w.-]+\/?$/
+      if (!githubUrlPattern.test(frontmatter.repo)) {
+        toast({
+          title: "无效的 GitHub 仓库 URL",
+          description: "请输入有效的 GitHub 仓库 URL，例如 https://github.com/username/repo",
+          variant: "destructive",
         })
-
-        // 提取base64内容
-        const base64Content = fileContent.split(",")[1]
-
-        // 上传到GitHub仓库
-        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/screenshots/${fileName}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: `Upload screenshot for ${appName}`,
-            content: base64Content,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`上传图片失败: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        imageUrls.push(data.content.download_url)
+        return
       }
 
-      return imageUrls
-    } catch (error) {
-      console.error("上传图片失败:", error)
-      toast({
-        title: "上传图片失败",
-        description: error.message || "上传截图时出现错误，请稍后重试",
-        variant: "destructive",
-      })
-      return []
-    } finally {
-      setUploadingImages(false)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    // 表单验证
-    if (!repoUrl.trim()) {
-      toast({
-        title: "请输入仓库 URL",
-        description: "GitHub 仓库 URL 是必填项",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!appName.trim()) {
-      toast({
-        title: "请输入应用名称",
-        description: "应用名称是必填项",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!category) {
-      toast({
-        title: "请选择应用分类",
-        description: "应用分类是必填项",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // 验证 GitHub 仓库 URL 格式
-    const githubUrlPattern = /^https:\/\/github\.com\/[\w-]+\/[\w.-]+\/?$/
-    if (!githubUrlPattern.test(repoUrl)) {
-      toast({
-        title: "无效的 GitHub 仓库 URL",
-        description: "请输入有效的 GitHub 仓库 URL，例如 https://github.com/username/repo",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      // 上传截图（如果有）
-      let screenshotUrls: string[] = []
-      if (screenshots.length > 0) {
-        screenshotUrls = await uploadImagesToGitHub()
-      }
+      setIsSubmitting(true)
 
       // 准备标签数组
-      const tagArray = tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0)
-
-      // 准备描述，包含截图
-      let enhancedDescription = description
-
-      // 添加截图部分
-      if (screenshotUrls.length > 0) {
-        enhancedDescription += "\n\n## 应用截图\n\n"
-        screenshotUrls.forEach((url, index) => {
-          enhancedDescription += `![应用截图${index + 1}](${url})\n`
-        })
-      }
+      const tags = frontmatter.tags
+        ? typeof frontmatter.tags === "string"
+          ? frontmatter.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0)
+          : Array.isArray(frontmatter.tags)
+            ? frontmatter.tags
+            : []
+        : []
 
       // 提交应用（创建 issue）
       await submitApp(
         {
-          title: appName,
-          repoUrl,
-          description: enhancedDescription,
-          category,
-          tags: tagArray,
+          title: frontmatter.name,
+          // 直接提交整个Markdown内容，包括前置元数据
+          markdownContent: markdownContent,
+          // 以下字段仅用于标签和分类
+          category: frontmatter.category,
+          tags: tags,
         },
         session.accessToken as string,
       )
@@ -281,14 +147,8 @@ export default function SubmitPage() {
         description: "您的应用已成功提交，等待审核",
       })
 
-      // 重置表单
-      setRepoUrl("")
-      setAppName("")
-      setDescription("")
-      setCategory("")
-      setTags("")
-      setScreenshots([])
-      setScreenshotPreviews([])
+      // 重定向到应用列表页面
+      router.push("/apps")
     } catch (error) {
       toast({
         title: "提交失败",
@@ -301,148 +161,99 @@ export default function SubmitPage() {
   }
 
   return (
-    <div className="container py-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="container py-8 mx-auto">
+      <div className="">
         <h1 className="text-3xl font-bold mb-6">提交应用</h1>
 
         <Card>
           <CardHeader>
-            <CardTitle>提交 GitHub 项目</CardTitle>
-            <CardDescription>分享您喜爱的开源项目，让更多人发现它</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>使用Markdown提交应用</CardTitle>
+                <CardDescription>使用前置元数据格式提交您的应用信息</CardDescription>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">前置元数据格式说明</h4>
+                    <p className="text-sm text-muted-foreground">
+                      前置元数据部分位于两个 <code>---</code> 之间，包含应用的基本信息。
+                    </p>
+                    <div className="text-sm space-y-1">
+                      <p>
+                        <strong>必填字段：</strong>
+                      </p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>
+                          <code>name</code>: 应用名称
+                        </li>
+                        <li>
+                          <code>repo</code>: GitHub仓库地址
+                        </li>
+                        <li>
+                          <code>category</code>: 应用分类
+                        </li>
+                        <li>
+                          <code>description</code>: 简短描述
+                        </li>
+                      </ul>
+                      <p className="mt-2">
+                        <strong>选填字段：</strong>
+                      </p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>
+                          <code>tags</code>: 标签，用逗号分隔
+                        </li>
+                        <li>
+                          <code>website</code>: 官方网站
+                        </li>
+                        <li>
+                          <code>version</code>: 当前版本
+                        </li>
+                        <li>
+                          <code>screenshots</code>: 截图URL数组
+                        </li>
+                      </ul>
+                      <p className="mt-2">
+                        <strong>提交说明：</strong>
+                      </p>
+                      <p>
+                        提交的项目将作为 issue 创建在 OpenSourceAppStore/NotGitHubAppStore
+                        仓库中，管理员审核后将添加到应用商店。请确保前置元数据格式正确，并提供详细的应用介绍。
+                      </p>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardHeader>
           <CardContent>
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="space-y-2">
-                <Label htmlFor="repo-url">GitHub 仓库 URL</Label>
-                <Input
-                  id="repo-url"
-                  placeholder="https://github.com/username/repo"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">输入完整的 GitHub 仓库 URL</p>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="app-name">应用名称</Label>
-                <Input
-                  id="app-name"
-                  placeholder="应用名称"
-                  value={appName}
-                  onChange={(e) => setAppName(e.target.value)}
-                />
-              </div>
+            <MarkdownEditor
+              value={markdownContent}
+              onChange={(value) => setMarkdownContent(value || "")}
+              height={500}
+              preview="live"
+            />
 
-              <div className="space-y-2">
-                <Label htmlFor="category">应用分类</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择分类" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tags">标签（用逗号分隔）</Label>
-                <Input
-                  id="tags"
-                  placeholder="react, ui, 组件库"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">添加相关标签，用逗号分隔</p>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">应用描述</Label>
-                <Textarea
-                  id="description"
-                  placeholder="请简要描述这个项目..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                />
-              </div>
 
-              {/* 应用截图上传 */}
-              <div className="space-y-2">
-                <Label>应用截图</Label>
-                <div className="border border-dashed border-border rounded-md p-4">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleScreenshotChange}
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    multiple
-                    className="hidden"
-                  />
-
-                  {/* 预览区域 */}
-                  {screenshotPreviews.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                      {screenshotPreviews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview || "/placeholder.svg"}
-                            alt={`截图 ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-md"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeScreenshot(index)}
-                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 上传按钮 */}
-                  {screenshots.length < 5 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-24 flex flex-col items-center justify-center gap-2"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-6 w-6" />
-                      <span>上传应用截图</span>
-                      <span className="text-xs text-muted-foreground">支持JPG、PNG、GIF和WebP格式，最多5张</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-muted p-4 rounded-md flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium mb-1">提交说明</p>
-                  <p>
-                    提交的项目将作为 issue 创建在 OpenSourceAppStore/NotGitHubAppStore
-                    仓库中，管理员审核后将添加到应用商店。
-                  </p>
-                </div>
-              </div>
-            </form>
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button variant="outline" onClick={() => router.back()}>
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting || uploadingImages}>
-              {isSubmitting || uploadingImages ? (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
                 <>
                   <span className="animate-spin mr-2">⏳</span>
-                  {uploadingImages ? "上传图片中..." : "提交中..."}
+                  提交中...
                 </>
               ) : (
                 <>

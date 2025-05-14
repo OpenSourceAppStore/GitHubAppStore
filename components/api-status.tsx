@@ -107,7 +107,7 @@ export function ApiStatus() {
           <span>GitHub API 状态 {session ? "(已认证)" : "(未认证)"}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
+      <PopoverContent className="w-80 h-96 overflow-auto" align="end">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">GitHub API 速率限制</h4>

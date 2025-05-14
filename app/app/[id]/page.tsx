@@ -22,16 +22,24 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  FileText,
+  Code,
+  Tag,
+  Clock,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
-// 从新的服务模块导入
+import matter from "gray-matter"
+import { MarkdownPreview } from "@/components/markdown-editor"
+
+// 从服务模块导入
 import { getAppDetails, getAppComments, addComment } from "@/services/app-details-api"
 import { getRepository, getReadme } from "@/services/repository-api"
 
 export default function AppPage({ params }) {
   const { id } = params
   const [app, setApp] = useState(null)
+  const [appData, setAppData] = useState<any>(null)
   const [comments, setComments] = useState([])
   const [repository, setRepository] = useState(null)
   const [readme, setReadme] = useState(null)
@@ -39,7 +47,6 @@ export default function AppPage({ params }) {
   const [error, setError] = useState(null)
   const [comment, setComment] = useState("")
   const [submittingComment, setSubmittingComment] = useState(false)
-  const [screenshots, setScreenshots] = useState<string[]>([])
   const [currentScreenshot, setCurrentScreenshot] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const { toast } = useToast()
@@ -61,40 +68,44 @@ export default function AppPage({ params }) {
       const appData = await getAppDetails(Number.parseInt(id), token)
       setApp(appData)
 
+      // 解析Markdown前置元数据
+      try {
+        const { data, content } = matter(appData.body)
+        setAppData({ frontmatter: data, content })
+
+        // 从前置元数据中获取仓库URL
+        const repoUrl = data.repo
+
+        if (repoUrl) {
+          // 从 URL 中提取仓库所有者和名称
+          const urlParts = repoUrl.split("/")
+          const owner = urlParts[urlParts.length - 2]
+          const repo = urlParts[urlParts.length - 1].replace(/\/$/, "") // 移除可能的尾部斜杠
+
+          // 获取仓库信息
+          try {
+            const repoData = await getRepository(owner, repo, token)
+            setRepository(repoData)
+
+            // 获取README内容
+            try {
+              const readmeData = await getReadme(owner, repo, token)
+              setReadme(readmeData)
+            } catch (readmeErr) {
+              console.error("README获取失败:", readmeErr)
+            }
+          } catch (repoErr) {
+            console.error("仓库信息获取失败:", repoErr)
+          }
+        }
+      } catch (parseErr) {
+        console.error("解析Markdown前置元数据失败:", parseErr)
+        setError("解析应用数据失败，格式可能不正确")
+      }
+
       // 获取应用评论
       const commentsData = await getAppComments(Number.parseInt(id), token)
       setComments(commentsData)
-
-      // 从 issue 内容中提取仓库 URL
-      const repoUrl = extractRepoUrl(appData.body)
-
-      // 提取截图
-      const extractedScreenshots = extractScreenshots(appData.body)
-      setScreenshots(extractedScreenshots)
-      console.log("Extracted Screenshots:", extractedScreenshots)
-
-      if (repoUrl) {
-        // 从 URL 中提取仓库所有者和名称
-        const urlParts = repoUrl.split("/")
-        const owner = urlParts[urlParts.length - 2]
-        const repo = urlParts[urlParts.length - 1]
-
-        // 获取仓库信息
-        try {
-          const repoData = await getRepository(owner, repo, token)
-          setRepository(repoData)
-
-          // 获取 README
-          try {
-            const readmeData = await getReadme(owner, repo, token)
-            setReadme(readmeData)
-          } catch (readmeErr) {
-            console.error("README 获取失败:", readmeErr)
-          }
-        } catch (repoErr) {
-          console.error("仓库信息获取失败:", repoErr)
-        }
-      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -102,66 +113,11 @@ export default function AppPage({ params }) {
     }
   }
 
-  // 从 issue 内容中提取仓库 URL
-  const extractRepoUrl = (body) => {
-    const match = body?.match(/\*\*仓库地址\*\*:\s*(https:\/\/github\.com\/[\w-]+\/[\w.-]+)/)
-    return match ? match[1] : null
-  }
-
-  // 从 issue 内容中提取描述
-  const extractDescription = (body) => {
-    if (!body) return ""
-
-    // 检查是否有应用截图部分
-    const screenshotSection = body.indexOf("## 应用截图")
-
-    if (screenshotSection === -1) {
-      // 如果没有截图部分，提取整个描述
-      const sections = body.split("## 描述")
-      if (sections.length > 1) {
-        const descSection = sections[1].split("##")[0].trim()
-        return descSection
-      }
-    } else {
-      // 如果有截图部分，只提取描述部分
-      const sections = body.split("## 描述")
-      if (sections.length > 1) {
-        const fullDesc = sections[1]
-        return fullDesc.substring(0, fullDesc.indexOf("## 应用截图")).trim()
-      }
-    }
-
-    return ""
-  }
-
-  // 从 issue 内容中提取截图
-  const extractScreenshots = (body) => {
-    if (!body) return []
-
-    const screenshots: string[] = []
-    const screenshotSection = body.indexOf("## 应用截图")
-
-    if (screenshotSection !== -1) {
-      // 提取截图部分的内容
-      const screenshotContent = body.substring(screenshotSection)
-
-      // 使用正则表达式匹配所有图片链接
-      const imgRegex = /!\[.*?\]\((.*?)\)/g
-      let match
-
-      while ((match = imgRegex.exec(screenshotContent)) !== null) {
-        screenshots.push(match[1])
-      }
-    }
-
-    return screenshots
-  }
-
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
         title: app?.title || "开源应用商店",
-        text: extractDescription(app?.body || "") || "查看这个开源应用",
+        text: appData?.frontmatter?.description || "查看这个开源应用",
         url: window.location.href,
       })
     } else {
@@ -226,6 +182,9 @@ export default function AppPage({ params }) {
 
   // 处理截图导航
   const navigateScreenshot = (direction: "prev" | "next") => {
+    const screenshots = appData?.frontmatter?.screenshots || []
+    if (screenshots.length === 0) return
+
     if (direction === "prev") {
       setCurrentScreenshot((prev) => (prev > 0 ? prev - 1 : screenshots.length - 1))
     } else {
@@ -242,6 +201,17 @@ export default function AppPage({ params }) {
   // 关闭截图灯箱
   const closeLightbox = () => {
     setLightboxOpen(false)
+  }
+
+  // 格式化日期
+  const formatDate = (dateString) => {
+    if (!dateString) return "未知"
+    const date = new Date(dateString)
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
   }
 
   if (loading) {
@@ -295,7 +265,7 @@ export default function AppPage({ params }) {
     )
   }
 
-  if (error || !app) {
+  if (error || !app || !appData) {
     return (
       <div className="container py-8">
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -310,8 +280,9 @@ export default function AppPage({ params }) {
     )
   }
 
-  const repoUrl = extractRepoUrl(app.body)
-  const description = extractDescription(app.body)
+  const { frontmatter, content } = appData
+  const repoUrl = frontmatter.repo
+  const screenshots = frontmatter.screenshots || []
 
   // 从 URL 中提取仓库所有者和名称
   let owner = ""
@@ -320,7 +291,7 @@ export default function AppPage({ params }) {
   if (repoUrl) {
     const urlParts = repoUrl.split("/")
     owner = urlParts[urlParts.length - 2]
-    repo = urlParts[urlParts.length - 1]
+    repo = urlParts[urlParts.length - 1].replace(/\/$/, "") // 移除可能的尾部斜杠
   }
 
   return (
@@ -354,6 +325,14 @@ export default function AppPage({ params }) {
                   </a>
                 </Button>
               )}
+              {frontmatter.website && (
+                <Button asChild variant="outline">
+                  <a href={frontmatter.website} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    官方网站
+                  </a>
+                </Button>
+              )}
               <Button variant="outline" onClick={handleShare}>
                 <Share2 className="h-4 w-4 mr-2" />
                 分享
@@ -365,58 +344,72 @@ export default function AppPage({ params }) {
             </div>
 
             <div className="flex flex-wrap gap-3 mb-6">
-              {app.labels.map((label) => (
-                <Badge key={label.id} variant="secondary">
-                  {label.name}
+              {frontmatter.category && (
+                <Badge variant="default" className="bg-primary">
+                  {frontmatter.category}
                 </Badge>
-              ))}
+              )}
+              {Array.isArray(frontmatter.tags) &&
+                frontmatter.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))}
+              {typeof frontmatter.tags === "string" &&
+                frontmatter.tags
+                  .split(",")
+                  .map((tag) => tag.trim())
+                  .filter((tag) => tag.length > 0)
+                  .map((tag, index) => (
+                    <Badge key={index} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
             </div>
 
-            {repository && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <Card>
-                  <CardContent className="p-4 flex flex-col items-center justify-center">
-                    <Star className="h-5 w-5 text-yellow-500 mb-1" />
-                    <div className="text-xl font-bold">{repository.stargazers_count.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">星标</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 flex flex-col items-center justify-center">
-                    <GitFork className="h-5 w-5 text-blue-500 mb-1" />
-                    <div className="text-xl font-bold">{repository.forks_count.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">分支</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 flex flex-col items-center justify-center">
-                    <Eye className="h-5 w-5 text-green-500 mb-1" />
-                    <div className="text-xl font-bold">{repository.watchers_count.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">关注</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 flex flex-col items-center justify-center">
-                    <MessageSquare className="h-5 w-5 text-purple-500 mb-1" />
-                    <div className="text-xl font-bold">{repository.open_issues_count.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">问题</div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <Card>
+                <CardContent className="p-4 flex flex-col items-center justify-center">
+                  <Star className="h-5 w-5 text-yellow-500 mb-1" />
+                  <div className="text-xl font-bold">{(repository?.stargazers_count || 0).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">星标</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex flex-col items-center justify-center">
+                  <GitFork className="h-5 w-5 text-blue-500 mb-1" />
+                  <div className="text-xl font-bold">{(repository?.forks_count || 0).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">分支</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex flex-col items-center justify-center">
+                  <Eye className="h-5 w-5 text-green-500 mb-1" />
+                  <div className="text-xl font-bold">{(repository?.watchers_count || 0).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">关注</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex flex-col items-center justify-center">
+                  <MessageSquare className="h-5 w-5 text-purple-500 mb-1" />
+                  <div className="text-xl font-bold">{(repository?.open_issues_count || 0).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">问题</div>
+                </CardContent>
+              </Card>
+            </div>
 
             <Tabs defaultValue="description">
               <TabsList className="mb-4">
                 <TabsTrigger value="description">描述</TabsTrigger>
+                {readme && <TabsTrigger value="readme">README</TabsTrigger>}
                 {screenshots.length > 0 && <TabsTrigger value="screenshots">截图 ({screenshots.length})</TabsTrigger>}
-                <TabsTrigger value="readme">README</TabsTrigger>
                 <TabsTrigger value="comments">评论 ({comments.length})</TabsTrigger>
               </TabsList>
 
               <TabsContent value="description">
                 <Card>
-                  <CardContent className="p-6 prose dark:prose-invert max-w-none">
-                    <div className="whitespace-pre-line">{description}</div>
+                  <CardContent className="p-6">
+                    <MarkdownPreview source={content} />
                   </CardContent>
                   <CardFooter className="text-sm text-muted-foreground">
                     <div className="flex items-center">
@@ -426,6 +419,20 @@ export default function AppPage({ params }) {
                   </CardFooter>
                 </Card>
               </TabsContent>
+
+              {readme && (
+                <TabsContent value="readme">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>README</CardTitle>
+                      <CardDescription>项目README文档</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <MarkdownPreview source={readme.content} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
 
               {screenshots.length > 0 && (
                 <TabsContent value="screenshots">
@@ -477,9 +484,8 @@ export default function AppPage({ params }) {
                           {screenshots.map((screenshot, index) => (
                             <div
                               key={index}
-                              className={`cursor-pointer rounded-md overflow-hidden border-2 ${
-                                index === currentScreenshot ? "border-primary" : "border-transparent"
-                              }`}
+                              className={`cursor-pointer rounded-md overflow-hidden border-2 ${index === currentScreenshot ? "border-primary" : "border-transparent"
+                                }`}
                               onClick={() => setCurrentScreenshot(index)}
                             >
                               <img
@@ -495,32 +501,6 @@ export default function AppPage({ params }) {
                   </Card>
                 </TabsContent>
               )}
-
-              <TabsContent value="readme">
-                {readme ? (
-                  <Card>
-                    <CardContent className="p-6 prose dark:prose-invert max-w-none">
-                      <div dangerouslySetInnerHTML={{ __html: readme.content }} />
-                    </CardContent>
-                    <CardFooter className="text-sm text-muted-foreground">
-                      <a
-                        href={`${repoUrl}#readme`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />在 GitHub 上查看完整 README
-                      </a>
-                    </CardFooter>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className="p-6 text-center py-12">
-                      <p className="text-muted-foreground">无法加载 README 内容</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
 
               <TabsContent value="comments">
                 <Card>
@@ -598,16 +578,20 @@ export default function AppPage({ params }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {app.user && (
+                  {/* 作者信息 */}
+                  {repository?.owner && (
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={app.user.avatar_url || "/placeholder.svg"} alt={app.user.login} />
-                        <AvatarFallback>{app.user.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage
+                          src={repository.owner.avatar_url || "/placeholder.svg"}
+                          alt={repository.owner.login}
+                        />
+                        <AvatarFallback>{repository.owner.login.substring(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h4 className="font-medium">{app.user.login}</h4>
+                        <h4 className="font-medium">{repository.owner.login}</h4>
                         <a
-                          href={app.user.html_url}
+                          href={repository.owner.html_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-muted-foreground hover:underline"
@@ -618,33 +602,103 @@ export default function AppPage({ params }) {
                     </div>
                   )}
 
-                  {repository && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">创建于</span>
-                        <span>{new Date(repository.created_at).toLocaleDateString()}</span>
+                  {/* 应用基本信息 */}
+                  <div className="space-y-2">
+                    {frontmatter.version && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center">
+                          <Tag className="h-3.5 w-3.5 mr-2" />
+                          版本
+                        </span>
+                        <span>{frontmatter.version}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">最后更新</span>
-                        <span>{new Date(repository.updated_at).toLocaleDateString()}</span>
+                    )}
+                    {repository?.license && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center">
+                          <FileText className="h-3.5 w-3.5 mr-2" />
+                          许可证
+                        </span>
+                        <span>{repository.license.spdx_id || repository.license.name}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">主要语言</span>
-                        <span>{repository.language || "未指定"}</span>
+                    )}
+                    {repository?.language && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center">
+                          <Code className="h-3.5 w-3.5 mr-2" />
+                          主要语言
+                        </span>
+                        <span>{repository.language}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">许可证</span>
-                        <span>{repository.license?.name || "未指定"}</span>
+                    )}
+                    {frontmatter.category && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center">
+                          <Tag className="h-3.5 w-3.5 mr-2" />
+                          分类
+                        </span>
+                        <span>{frontmatter.category}</span>
                       </div>
-                      {screenshots.length > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">截图数量</span>
-                          <span>{screenshots.length}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
 
+                  {/* 时间信息 */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <Calendar className="h-3.5 w-3.5 mr-2" />
+                        创建于
+                      </span>
+                      <span>{formatDate(repository?.created_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <Clock className="h-3.5 w-3.5 mr-2" />
+                        最后更新
+                      </span>
+                      <span>{formatDate(repository?.updated_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <Calendar className="h-3.5 w-3.5 mr-2" />
+                        提交于
+                      </span>
+                      <span>{formatDate(app.created_at)}</span>
+                    </div>
+                  </div>
+
+                  {/* 统计信息 */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <Star className="h-3.5 w-3.5 mr-2" />
+                        星标数
+                      </span>
+                      <span>{(repository?.stargazers_count || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <GitFork className="h-3.5 w-3.5 mr-2" />
+                        分支数
+                      </span>
+                      <span>{(repository?.forks_count || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center">
+                        <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                        问题数
+                      </span>
+                      <span>{(repository?.open_issues_count || 0).toLocaleString()}</span>
+                    </div>
+                    {screenshots.length > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">截图数量</span>
+                        <span>{screenshots.length}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 相关链接 */}
                   {repoUrl && (
                     <div className="pt-4 border-t">
                       <h4 className="font-medium mb-2">相关链接</h4>
@@ -698,7 +752,7 @@ export default function AppPage({ params }) {
       </div>
 
       {/* 截图灯箱 */}
-      {lightboxOpen && (
+      {lightboxOpen && screenshots.length > 0 && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={closeLightbox}>
           <div className="relative w-full h-full flex items-center justify-center p-4">
             <img

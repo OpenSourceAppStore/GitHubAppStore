@@ -33,32 +33,13 @@ export async function getApps(page = 1, perPage = 10, labels?: string[], token?:
 export async function submitApp(
   appData: {
     title: string
-    repoUrl: string
-    description: string
+    markdownContent: string
     category: string
     tags: string[]
   },
   token: string,
 ) {
   const url = getRepoApiUrl("/issues")
-
-  // 构建 issue 内容，遵循模板格式
-  // 注意：description 可能已经包含了截图部分
-  const body = `
-## 应用信息
-
-- **仓库地址**: ${appData.repoUrl}
-- **分类**: ${appData.category}
-- **标签**: ${appData.tags.join(", ")}
-
-## 描述
-
-${appData.description}
-
-## 提交者
-
-${new Date().toISOString().split("T")[0]}
-`
 
   const headers = createHeaders(token)
   headers["Content-Type"] = "application/json"
@@ -70,7 +51,7 @@ ${new Date().toISOString().split("T")[0]}
       headers,
       body: JSON.stringify({
         title: appData.title,
-        body: body,
+        body: appData.markdownContent,
         labels: ["app", ...appData.tags, appData.category],
       }),
     },
